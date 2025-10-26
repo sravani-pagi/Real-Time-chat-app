@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Chat App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styling for chat area */
+        #message-viewport {
+            max-height: calc(100vh - 12rem); /* Full height minus header and input area */
+            scroll-behavior: smooth;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 antialiased">
+
+    <div id="login-screen" class="flex items-center justify-center h-screen">
+        <p>Pretend a login form is here. After login, you get a JWT and the UI below loads.</p>
+        <button onclick="simulateLogin()" class="bg-blue-600 text-white p-3 rounded-lg">Simulate Login</button>
+    </div>
+
+    <div id="chat-screen" class="hidden h-screen flex">
+        
+        <div class="w-72 bg-gray-900 text-white flex flex-col p-4 border-r border-gray-700">
+            <h1 class="text-xl font-bold mb-4">Chat Rooms</h1>
+            <div id="room-list" class="space-y-2 mb-6">
+                <button data-id="general" data-type="public" class="room-btn w-full text-left p-2 rounded-lg bg-blue-600"># General</button>
+            </div>
+            <h2 class="text-lg font-semibold mb-2">Online Users</h2>
+            <div id="user-list" class="flex-1 overflow-y-auto space-y-2">
+                </div>
+        </div>
+
+        <div class="flex-1 flex flex-col">
+            <header class="p-4 border-b bg-white shadow-md">
+                <h2 id="current-chat-name" class="text-xl font-semibold"># General</h2>
+            </header>
+
+            <div id="message-viewport" class="flex-1 overflow-y-auto p-6 flex flex-col space-y-4">
+                </div>
+
+            <div id="typing-indicator" class="px-6 py-2 text-sm text-gray-500 hidden"></div>
+
+            <footer class="p-4 border-t bg-white">
+                <div class="flex space-x-3">
+                    <input type="text" id="message-input" placeholder="Type a message..."
+                        class="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button id="send-button"
+                        class="bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 transition">Send</button>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // ===================================
+        // === Client-Side Chat Logic ===
+        // ===================================
+        const MESSAGE_VIEWPORT = document.getElementById('message-viewport');
+        const MESSAGE_INPUT = document.getElementById('message-input');
+        const TYPING_INDICATOR = document.getElementById('typing-indicator');
+        const SEND_BUTTON = document.getElementById('send-button');
+        const ROOM_LIST = document.getElementById('room-list');
+        const USER_LIST = document.getElementById('user-list');
+
+        let socket;
+        let currentUser;
+        let activeChat = { id: 'general', name: 'General', type: 'public' };
+        let typingTimeout;
+
+        function simulateLogin() {
+            // For real app, fetch token from login POST response.
+            const FAKE_JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYwYmY5MjgyYjQ2NmI4NjQyYjVlNDgwMCIsInVzZXJuYW1lIjoiVGVzdFVzZXIiLCJpYXQiOjE2ODcyMDMwMTAsImV4cCI6MTY4NzIwNjYxMH0.SjQvTqK7_B4w3oX0cE-Z_x_X_p_w_h_j_W_4'; // Replace with a real token from your /login endpoint
+            localStorage.setItem('chatToken', FAKE_JWT); 
+
+            // Simulate current user data from decoded JWT
+            currentUser = { id: '60bf9282b466b8642b5e4800', username: 'TestUser' }; 
+            
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('chat-screen').classList.remove('hidden');
+            
+            connectSocket(FAKE_JWT);
+        }
+
+        function connectSocket(token) {
+            socket = io({
+                auth: { token: token }
+            });
+
+            socket.on('connect', () => {
+                console.log('Socket Connected!');
+                console.log('DEBUG: Active Chat State:', activeChat);
+                // Join the initial room and fetch history
+                socket.emit('joinChat', { targetId: activeChat.id, isPrivate: activeChat.type === 'private' });
+            });
+            
+            socket.on('connect_error', (err) => {
+                console.error('Socket Connection Error:', err.message);
+                alert('Authentication Failed: ' + err.message);
+                document.getElementById('login-screen').classList.remove('hidden');
+                document.getElementById('chat-screen').classList.add('hidden');
+            });
+            
+            // --- Event Handlers ---
+            
+            socket.on('chatHistory', (messages) => {
+                MESSAGE_VIEWPORT.innerHTML = ''; // Clear previous messages
+                messages.forEach(addMessageToView);
+                scrollToBottom();
+            });
+
+            socket.on('newMessage', (message) => {
+                // Check if the message is for the currently active chat
+                if (message.targetId === activeChat.id || (activeChat.type === 'private' && 
+                    (message.senderId === activeChat.id || message.targetId === activeChat.id))) {
+                    addMessageToView(message);
+                    scrollToBottom();
+                }
+            });
+
+            socket.on('onlineUsers', (users) => {
+                USER_LIST.innerHTML = '';
+                users.forEach(username => {
+                    const statusClass = username === currentUser.username ? 'text-green-500' : 'text-gray-400';
+                    USER_LIST.innerHTML += `<div class="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-700 cursor-pointer">
+                        <span class="w-3 h-3 rounded-full ${statusClass}"></span>
+                        <span class="text-sm">${username}</span>
+                    </div>`;
+                });
+            });
+
+            // Typing Indicators
+            socket.on('userTyping', ({ username, targetId }) => {
+                if (targetId === activeChat.id) {
+                    TYPING_INDICATOR.textContent = `${username} is typing...`;
+                    TYPING_INDICATOR.classList.remove('hidden');
+                }
+            });
+
+            socket.on('userStoppedTyping', ({ username, targetId }) => {
+                if (targetId === activeChat.id) {
+                    TYPING_INDICATOR.classList.add('hidden');
+                }
+            });
+        }
+
+        // --- UI Functions ---
+
+        function addMessageToView(message) {
+    // FIX APPLIED HERE: Use message.senderId._id for comparison
+    const senderIdString = message.senderId._id || message.senderId;
+    const isMe = senderIdString === currentUser.id;
+
+    const alignClass = isMe ? 'justify-end' : 'justify-start';
+    const bubbleClass = isMe ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-200 text-gray-800 rounded-bl-none';
+    
+    // Ensure you pull the username correctly from the populated object
+    const username = message.senderId.username || 'Unknown'; 
+
+    const messageHtml = `
+        <div class="flex ${alignClass}">
+            <div class="flex flex-col max-w-xs md:max-w-md">
+                <span class="text-xs ${isMe ? 'text-right' : 'text-left'} text-gray-500 mb-1">${isMe ? 'You' : username}</span>
+                <div class="${bubbleClass} p-3 rounded-xl shadow">
+                    <p class="text-sm">${message.content}</p>
+                    <span class="text-xs opacity-70 block ${isMe ? 'text-right' : 'text-left'} mt-1">${new Date(message.timestamp).toLocaleTimeString()}</span>
+                </div>
+            </div>
+        </div>
+    `;
+    MESSAGE_VIEWPORT.innerHTML += messageHtml;
+}
+        
+        function scrollToBottom() {
+            MESSAGE_VIEWPORT.scrollTop = MESSAGE_VIEWPORT.scrollHeight;
+        }
+
+        // --- Input Event Listeners ---
+
+        SEND_BUTTON.addEventListener('click', () => {
+            const content = MESSAGE_INPUT.value.trim();
+            if (content) {
+                // Emit message to the server
+                socket.emit('sendMessage', { 
+                    content: content, 
+                    targetId: activeChat.id, 
+                    isPrivate: activeChat.type === 'private' 
+                });
+                MESSAGE_INPUT.value = ''; // Clear input
+                
+                // Also notify server that typing has stopped
+                socket.emit('stopTyping', { targetId: activeChat.id });
+            }
+        });
+
+        // Typing Indicator Listener
+        MESSAGE_INPUT.addEventListener('input', () => {
+            socket.emit('typing', { targetId: activeChat.id });
+            
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                socket.emit('stopTyping', { targetId: activeChat.id });
+            }, 2000); // Stop typing after 2s of inactivity
+        });
+
+        // Initial setup run
+        window.onload = () => {
+            // Check for existing token to skip login (or show login form)
+            const token = localStorage.getItem('chatToken');
+            if (token) {
+                // NOTE: In a real app, you would verify this token with a backend endpoint
+                simulateLogin();
+            } else {
+                 document.getElementById('login-screen').classList.remove('hidden');
+            }
+        };
+    </script>
+</body>
+</html>
