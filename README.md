@@ -20,7 +20,7 @@ This project demonstrates the integration of backend, frontend, and real-time sy
 8. [Database Design](#database-design)
 9. [Data Flow (End-to-End)](#data-flow-end-to-end)
 10. [Setup and Installation](#setup-and-installation)
-11. [API Endpoints]
+11. [API Endpoints](#endpoints)
 12. [Technologies Used](#technologies-used)
 13. [License](#license)
 
