@@ -20,11 +20,9 @@ This project demonstrates the integration of backend, frontend, and real-time sy
 8. [Database Design](#database-design)
 9. [Data Flow (End-to-End)](#data-flow-end-to-end)
 10. [Setup and Installation](#setup-and-installation)
-11. [API Endpoints](#api-endpoints)
-12. [Testing Guide](#testing-guide)
-13. [Future Improvements](#future-improvements)
-14. [Technologies Used](#technologies-used)
-15. [License](#license)
+11. [API Endpoints]
+12. [Technologies Used](#technologies-used)
+13. [License](#license)
 
 ---
 
@@ -243,7 +241,7 @@ Each room has its own message channel identified by a room ID.
 
 ---
 
-## ⚙️ Setup and Installation
+##  Setup and Installation
 
 ### 1️⃣ Clone the repository
 ```bash
@@ -269,8 +267,6 @@ JWT_SECRET=your_secret_key
 npm start
 ```
 
-Visit → [http://localhost:5000](http://localhost:5000)
-
 ---
 
 ##  API Endpoints
@@ -281,30 +277,6 @@ Visit → [http://localhost:5000](http://localhost:5000)
 | POST | `/api/auth/login` | Login existing user |
 | GET | `/api/chat/rooms` | Get all chat rooms |
 | POST | `/api/chat/messages` | Send new message |
-
----
-
-##  Testing Guide
-
-You can use **Postman** or **cURL**.
-
-**Example:**
-```bash
-curl -X POST http://localhost:5000/api/auth/login -H "Content-Type: application/json" -d '{"email":"test@example.com","password":"123456"}'
-```
-
----
-
-##  Sample Output
-
-### Login Page
-![Login](public/screenshots/login.png)
-
-### Chat Interface
-![Chat](public/screenshots/chat.png)
-
-### Real-Time Chat
-Messages appear instantly to all participants in the same room.
 
 ---
 
@@ -327,6 +299,7 @@ Messages appear instantly to all participants in the same room.
 
 This project is licensed under the **MIT License**.  
 You’re free to use, modify, and distribute it with attribution.
+
 
 
 
